@@ -307,6 +307,40 @@ LaserMapping::LaserMapping() {
     p_imu_.reset(new ImuProcess());
 }
 
+// Todo: adaptively adjust the parameters according to the environment
+void LaserMapping::AdaptiveParam() {}
+
+void LaserMapping::DegenerationDetection() {
+    // check the Eigen value of normal matrix to detect degeneration
+    HTH_ = kf_.get_HTH();
+    Eigen::EigenSolver<Eigen::Matrix<double, 12, 12>> eigen_solver(HTH_);
+    Eigen::VectorXcd eig_val = eigen_solver.eigenvalues();
+    eigen_hth_seq_.emplace_back(last_timestamp_lidar_, eig_val.real()(5));
+    if (eig_val.real()(5) < options::EIGEN_VAL_HTH_THRESH) {
+        ROS_INFO("Time: %.5f HTH: %.3f", last_timestamp_lidar_, eig_val.real()(5));
+    }
+    
+    // collect votes from the siding window
+    int degeneration_vote = 0;
+    for (int i = 0; i < is_degerate_seq_.size(); ++i) {
+        if (abs(eigen_hth_seq_.back().first - last_timestamp_lidar_) < 5.0 && 
+            eigen_hth_seq_.back().second < options::EIGEN_VAL_HTH_THRESH)
+            degeneration_vote++;
+        if (abs(proximity_pnt_seq_.back().first - last_timestamp_lidar_) < 5.0 &&
+            proximity_pnt_seq_.back().second > options::PROXIMITY_PNT_RATIO)
+            degeneration_vote++;
+    }
+    
+    // 2/3 vote degenerate
+    is_degerate_seq_.pop_front();
+    if (degeneration_vote > 0.67 * 2.0 * is_degerate_seq_.size()) {
+        ROS_INFO("Time: %.5f Potential degenerate scenario, vote %d", last_timestamp_lidar_, degeneration_vote);
+        is_degerate_seq_.emplace_back(last_timestamp_lidar_, 1);
+    } else {
+        is_degerate_seq_.emplace_back(last_timestamp_lidar_, 0);
+    }
+}
+
 void LaserMapping::Run() {
     if (!SyncPackages()) {
         return;
@@ -354,6 +388,7 @@ void LaserMapping::Run() {
             double solve_H_time = 0;
             // update the observation model, will call nn and point-to-plane residual computation
             kf_.update_iterated_dyn_share_modified(options::LASER_POINT_COV, solve_H_time);
+            DegenerationDetection();
             // save the state
             state_point_ = kf_.get_x();
             euler_cur_ = SO3ToEuler(state_point_.rot);
@@ -593,7 +628,7 @@ void LaserMapping::MapIncremental() {
  */
 void LaserMapping::ObsModel(state_ikfom &s, esekfom::dyn_share_datastruct<double> &ekfom_data) {
     int cnt_pts = scan_down_body_->size();
-
+    int proximity_pts_cnt = 0;  // points that are too close to the body
     std::vector<size_t> index(cnt_pts);
     for (size_t i = 0; i < index.size(); ++i) {
         index[i] = i;
@@ -611,6 +646,7 @@ void LaserMapping::ObsModel(state_ikfom &s, esekfom::dyn_share_datastruct<double
 
                 /* transform to world frame */
                 common::V3F p_body = point_body.getVector3fMap();
+                if (p_body.norm() < options::PROXIMITY_PNT_DIS) proximity_pts_cnt++;
                 point_world.getVector3fMap() = R_wl * p_body + t_wl;
                 point_world.intensity = point_body.intensity;
 
@@ -639,6 +675,15 @@ void LaserMapping::ObsModel(state_ikfom &s, esekfom::dyn_share_datastruct<double
             });
         },
         "    ObsModel (Lidar Match)");
+
+    // check the percentage of the proximity points
+    if (index.size() > 0) {
+        proximity_pnt_seq_.pop_front();
+        proximity_pnt_seq_.emplace_back(last_timestamp_lidar_, 
+                                        static_cast<double>(proximity_pts_cnt) / static_cast<double>(index.size()));
+        if (proximity_pnt_seq_.back().second > options::PROXIMITY_PNT_RATIO)
+            ROS_INFO("Time: %.5f proximity: %.3f", last_timestamp_lidar_, proximity_pnt_seq_.back().second);
+    }
 
     effect_feat_num_ = 0;
 

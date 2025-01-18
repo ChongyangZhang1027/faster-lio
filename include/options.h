@@ -13,6 +13,9 @@ constexpr double LASER_POINT_COV = 0.001;
 constexpr int PUBFRAME_PERIOD = 20;
 constexpr int NUM_MATCH_POINTS = 5;      // required matched points in current
 constexpr int MIN_NUM_MATCH_POINTS = 3;  // minimum matched points in current
+constexpr double PROXIMITY_PNT_DIS    = 3;   // threshold to judge if the points are too close to the sensor
+constexpr double PROXIMITY_PNT_RATIO  = 0.5; // threshold to judge if the percertage of proximity points is too high
+constexpr double EIGEN_VAL_HTH_THRESH = 60;  // threshold to judge if the HTH matrix is ill
 
 /// configurable params
 extern int NUM_MAX_ITERATIONS;      // max iterations of ekf

@@ -1685,6 +1685,7 @@ class esekf {
                 cov P_temp = (P_ / R).inverse();
                 // Eigen::Matrix<scalar_type, 12, Eigen::Dynamic> h_T = h_x_.transpose();
                 Eigen::Matrix<scalar_type, 12, 12> HTH = h_x_.transpose() * h_x_;
+                HTH_ = HTH;
                 P_temp.template block<12, 12>(0, 0) += HTH;
                 /*
                 Eigen::Matrix<scalar_type, Eigen::Dynamic, Eigen::Dynamic> h_x_cur = Eigen::Matrix<scalar_type,
@@ -1846,6 +1847,7 @@ class esekf {
 
     const state &get_x() const { return x_; }
     const cov &get_P() const { return P_; }
+    const Eigen::Matrix<scalar_type, 12, 12> &get_HTH() const { return HTH_; }
 
    private:
     state x_;
@@ -1857,6 +1859,7 @@ class esekf {
     cov F_x1 = cov::Identity();
     cov F_x2 = cov::Identity();
     cov L_ = cov::Identity();
+    Eigen::Matrix<scalar_type, 12, 12> HTH_;
 
     processModel *f;
     processMatrix1 *f_x;
