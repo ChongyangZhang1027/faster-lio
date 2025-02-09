@@ -149,15 +149,17 @@ class LaserMapping {
     bool timediff_set_flg_ = false;
     int effect_feat_num_ = 0, frame_num_ = 0;
     // store redundant infomation for potential future use
-    std::deque<std::pair<double, int>> is_degerate_seq_{10, {0, 0}};
-    std::deque<std::pair<double, double>> eigen_hth_seq_{10, {0, 500}};
-    std::deque<std::pair<double, double>> proximity_pnt_seq_{10, {0, 0}};
+    std::deque<std::pair<double, int>> is_degerate_seq_{options::DEGENERATION_CHECK_SW, {0, 0}};
+    std::deque<std::pair<double, double>> eigen_hth_seq_{options::DEGENERATION_CHECK_SW, {0, 500}};
+    std::deque<std::pair<double, double>> eigen_M_seq_{options::DEGENERATION_CHECK_SW, {0, 500}};
+    std::deque<std::pair<double, double>> proximity_pnt_seq_{options::DEGENERATION_CHECK_SW, {0, 0}};
 
     ///////////////////////// EKF inputs and output ///////////////////////////////////////////////////////
     common::MeasureGroup measures_;                    // sync IMU and lidar scan
     esekfom::esekf<state_ikfom, 12, input_ikfom> kf_;  // esekf
     state_ikfom state_point_;                          // ekf current state
-    Eigen::Matrix<double, 12, 12> HTH_;           // normal matrix of the Kalman filter
+    Eigen::Matrix<double, 12, 12> HTH_ = Eigen::MatrixXd::Zero(12, 12);  // normal matrix of the Kalman filter
+    Eigen::Matrix<double, 3, 3> M_ = Eigen::MatrixXd::Zero(3, 3);        // M = sum(n*n^T) detect degenerate
     vect3 pos_lidar_;                                  // lidar position after eskf update
     common::V3D euler_cur_ = common::V3D::Zero();      // rotation in euler angles
     bool extrinsic_est_en_ = true;

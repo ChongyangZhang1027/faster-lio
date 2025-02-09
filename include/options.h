@@ -16,6 +16,8 @@ constexpr int MIN_NUM_MATCH_POINTS = 3;  // minimum matched points in current
 constexpr double PROXIMITY_PNT_DIS    = 3;   // threshold to judge if the points are too close to the sensor
 constexpr double PROXIMITY_PNT_RATIO  = 0.5; // threshold to judge if the percertage of proximity points is too high
 constexpr double EIGEN_VAL_HTH_THRESH = 60;  // threshold to judge if the HTH matrix is ill
+constexpr double EIGEN_VAL_M_THRESH = 350;    // threshold to judge if the M matrix is ill
+constexpr int DEGENERATION_CHECK_SW = 10;    // sliding window length of degeneration check
 
 /// configurable params
 extern int NUM_MAX_ITERATIONS;      // max iterations of ekf
