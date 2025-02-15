@@ -80,7 +80,7 @@ class LaserMapping {
 
     void PrintState(const state_ikfom &s);
     void DegenerationDetection();
-    void AdaptiveParam();
+    void AdaptiveVoxelSize();
 
    private:
     /// modules
@@ -136,6 +136,9 @@ class LaserMapping {
     double lidar_end_time_ = 0;
     double last_timestamp_imu_ = -1.0;
     double first_lidar_time_ = 0.0;
+    double filter_size_surf_ = 0.5;
+    int leafSizeChangeCnt_ = 0;
+    int desired_point_num_ = 3000;
     bool lidar_pushed_ = false;
 
     /// statistics and flags ///

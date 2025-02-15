@@ -73,6 +73,8 @@ bool LaserMapping::LoadParams(ros::NodeHandle &nh) {
     nh.param<std::string>("map_file_path", map_file_path_, "");
     nh.param<bool>("common/time_sync_en", time_sync_en_, false);
     nh.param<double>("filter_size_surf", filter_size_surf_min, 0.5);
+    nh.param<double>("filter_size_surf", filter_size_surf_, 0.5);
+    nh.param<int>("desired_point_num", desired_point_num_, 3000);
     nh.param<double>("filter_size_map", filter_size_map_min_, 0.0);
     nh.param<double>("cube_side_length", cube_len_, 200);
     nh.param<float>("mapping/det_range", det_range_, 300.f);
@@ -307,8 +309,24 @@ LaserMapping::LaserMapping() {
     p_imu_.reset(new ImuProcess());
 }
 
-// Todo: adaptively adjust the parameters according to the environment
-void LaserMapping::AdaptiveParam() {}
+void LaserMapping::AdaptiveVoxelSize()
+{
+    double leafSize = filter_size_surf_ * (static_cast<double>(scan_down_body_->points.size()) / 
+                      static_cast<double>(desired_point_num_));
+    bool flagChange = false;
+    leafSizeChangeCnt_++;
+    if (abs(leafSize - filter_size_surf_) < 0.01) return;
+    if (leafSize < 0.02) { leafSize = 0.02; flagChange = true; }
+    if (leafSize > 3.00) { leafSize = 3.00; flagChange = true; }
+
+    if (flagChange || leafSizeChangeCnt_ > 20) {
+        printf("time: %.3f pnt_num %ld desired %d d(t) %.3f d(t+1) %.3f\n", last_timestamp_lidar_, 
+            scan_down_body_->points.size(), desired_point_num_, filter_size_surf_, leafSize);
+        filter_size_surf_ = leafSize;
+        voxel_scan_.setLeafSize(filter_size_surf_ , filter_size_surf_, filter_size_surf_);
+        leafSizeChangeCnt_ = 0;
+    }
+}
 
 void LaserMapping::DegenerationDetection() {
     // check the Eigen value of normal matrix to detect degeneration
@@ -381,6 +399,9 @@ void LaserMapping::Run() {
         [&, this]() {
             voxel_scan_.setInputCloud(scan_undistort_);
             voxel_scan_.filter(*scan_down_body_);
+            AdaptiveVoxelSize();
+            // printf("time %.3f pnt_num %ld %ld\n", last_timestamp_lidar_, scan_undistort_->points.size(), 
+            //     scan_down_body_->points.size());
         },
         "Downsample PointCloud");
 
